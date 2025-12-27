@@ -2,16 +2,20 @@ import axios from 'axios'
 import type { AgentState, CreateMachineResponse, CreateSessionResponse, DaemonState, Machine, MachineMetadata, Metadata, Session } from '@/api/types'
 import { AgentStateSchema, CreateMachineResponseSchema, CreateSessionResponseSchema, DaemonStateSchema, MachineMetadataSchema, MetadataSchema } from '@/api/types'
 import { configuration } from '@/configuration'
-import { getAuthToken } from '@/api/auth'
+import { getAuthToken, getAuthMode, getProjectPath } from '@/api/auth'
 import { ApiMachineClient } from './apiMachine'
 import { ApiSessionClient } from './apiSession'
 
 export class ApiClient {
     static async create(): Promise<ApiClient> {
-        return new ApiClient(getAuthToken())
+        return new ApiClient(getAuthToken(), getAuthMode(), getProjectPath())
     }
 
-    private constructor(private readonly token: string) { }
+    private constructor(
+        private readonly token: string,
+        private readonly authMode: 'admin' | 'project',
+        private readonly projectPath: string | null
+    ) { }
 
     async getOrCreateSession(opts: {
         tag: string
@@ -23,7 +27,9 @@ export class ApiClient {
             {
                 tag: opts.tag,
                 metadata: opts.metadata,
-                agentState: opts.state
+                agentState: opts.state,
+                authMode: this.authMode,
+                projectPath: this.projectPath
             },
             {
                 headers: {
@@ -77,7 +83,9 @@ export class ApiClient {
             {
                 id: opts.machineId,
                 metadata: opts.metadata,
-                daemonState: opts.daemonState ?? null
+                daemonState: opts.daemonState ?? null,
+                authMode: this.authMode,
+                projectPath: this.projectPath
             },
             {
                 headers: {

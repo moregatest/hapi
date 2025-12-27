@@ -10,9 +10,13 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import packageJson from '../package.json'
 
+export type AuthMode = 'admin' | 'project'
+
 class Configuration {
     public readonly serverUrl: string
     private _cliApiToken: string
+    private _hapiApiToken: string
+    private _authMode: AuthMode
     public readonly isDaemonProcess: boolean
 
     // Directories and paths (from persistence)
@@ -29,7 +33,17 @@ class Configuration {
     constructor() {
         // Server configuration
         this.serverUrl = process.env.HAPI_SERVER_URL || 'http://localhost:3006'
+
+        // Token configuration with priority: HAPI_API_TOKEN > CLI_API_TOKEN
+        this._hapiApiToken = process.env.HAPI_API_TOKEN || ''
         this._cliApiToken = process.env.CLI_API_TOKEN || ''
+
+        // Determine auth mode based on which token is available
+        if (this._hapiApiToken) {
+            this._authMode = 'project'
+        } else {
+            this._authMode = 'admin'
+        }
 
         // Check if we're running as daemon based on process args
         const args = process.argv.slice(2)
@@ -67,8 +81,34 @@ class Configuration {
         return this._cliApiToken
     }
 
+    get hapiApiToken(): string {
+        return this._hapiApiToken
+    }
+
+    get authMode(): AuthMode {
+        return this._authMode
+    }
+
+    /** Returns the active token based on auth mode */
+    get activeToken(): string {
+        return this._authMode === 'project' ? this._hapiApiToken : this._cliApiToken
+    }
+
     _setCliApiToken(token: string): void {
         this._cliApiToken = token
+        // Update auth mode if no project token is set
+        if (!this._hapiApiToken) {
+            this._authMode = 'admin'
+        }
+    }
+
+    _setHapiApiToken(token: string): void {
+        this._hapiApiToken = token
+        if (token) {
+            this._authMode = 'project'
+        } else if (this._cliApiToken) {
+            this._authMode = 'admin'
+        }
     }
 }
 

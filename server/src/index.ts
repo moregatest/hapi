@@ -37,6 +37,7 @@ let syncEngine: SyncEngine | null = null
 let happyBot: HappyBot | null = null
 let webServer: BunServer<WebSocketData> | null = null
 let sseManager: SSEManager | null = null
+let store: Store | null = null
 
 async function main() {
     console.log('HAPI Server starting...')
@@ -77,7 +78,7 @@ async function main() {
         }
     }
 
-    const store = new Store(config.dbPath)
+    store = new Store(config.dbPath)
     const jwtSecret = await getOrCreateJwtSecret()
 
     sseManager = new SSEManager(30_000)
@@ -106,6 +107,7 @@ async function main() {
     webServer = await startWebServer({
         getSyncEngine: () => syncEngine,
         getSseManager: () => sseManager,
+        getStore: () => store,
         jwtSecret,
         socketEngine: socketServer.engine
     })

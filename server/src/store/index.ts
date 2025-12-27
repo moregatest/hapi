@@ -42,6 +42,12 @@ export type StoredMessage = {
     localId: string | null
 }
 
+export type StoredProjectToken = {
+    token: string
+    projectPath: string
+    createdAt: number
+}
+
 export type VersionedUpdateResult<T> =
     | { result: 'success'; version: number; value: T }
     | { result: 'version-mismatch'; version: number; value: T }
@@ -84,6 +90,12 @@ type DbMessageRow = {
     created_at: number
     seq: number
     local_id: string | null
+}
+
+type DbProjectTokenRow = {
+    token: string
+    project_path: string
+    created_at: number
 }
 
 function safeJsonParse(value: string | null): unknown | null {
@@ -137,6 +149,14 @@ function toStoredMessage(row: DbMessageRow): StoredMessage {
         createdAt: row.created_at,
         seq: row.seq,
         localId: row.local_id
+    }
+}
+
+function toStoredProjectToken(row: DbProjectTokenRow): StoredProjectToken {
+    return {
+        token: row.token,
+        projectPath: row.project_path,
+        createdAt: row.created_at
     }
 }
 
@@ -222,6 +242,13 @@ export class Store {
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_local_id ON messages(session_id, local_id) WHERE local_id IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS project_tokens (
+                token TEXT PRIMARY KEY,
+                project_path TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_project_tokens_path ON project_tokens(project_path);
         `)
 
         const sessionColumns = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
@@ -548,5 +575,34 @@ export class Store {
             ).all(sessionId, safeLimit) as DbMessageRow[]
 
         return rows.reverse().map(toStoredMessage)
+    }
+
+    getOrCreateProjectToken(token: string, projectPath: string): StoredProjectToken {
+        const existing = this.db.prepare('SELECT * FROM project_tokens WHERE token = ?').get(token) as DbProjectTokenRow | undefined
+        if (existing) {
+            return toStoredProjectToken(existing)
+        }
+
+        const now = Date.now()
+        this.db.prepare(`
+            INSERT INTO project_tokens (token, project_path, created_at)
+            VALUES (@token, @project_path, @created_at)
+        `).run({ token, project_path: projectPath, created_at: now })
+
+        const row = this.db.prepare('SELECT * FROM project_tokens WHERE token = ?').get(token) as DbProjectTokenRow | undefined
+        if (!row) {
+            throw new Error('Failed to create project token')
+        }
+        return toStoredProjectToken(row)
+    }
+
+    getProjectToken(token: string): StoredProjectToken | null {
+        const row = this.db.prepare('SELECT * FROM project_tokens WHERE token = ?').get(token) as DbProjectTokenRow | undefined
+        return row ? toStoredProjectToken(row) : null
+    }
+
+    getProjectTokensByPath(projectPath: string): StoredProjectToken[] {
+        const rows = this.db.prepare('SELECT * FROM project_tokens WHERE project_path = ?').all(projectPath) as DbProjectTokenRow[]
+        return rows.map(toStoredProjectToken)
     }
 }

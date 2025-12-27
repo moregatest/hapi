@@ -1,10 +1,11 @@
 /**
  * Token initialization module
  *
- * Handles CLI_API_TOKEN initialization with priority:
- * 1. Environment variable (highest - allows temporary override)
- * 2. Settings file (~/.hapi/settings.json)
- * 3. Interactive prompt (only when both above are missing)
+ * Handles token initialization with priority:
+ * 1. HAPI_API_TOKEN environment variable (project mode - highest priority)
+ * 2. CLI_API_TOKEN environment variable (admin mode)
+ * 3. Settings file (~/.hapi/settings.json)
+ * 4. Interactive prompt (only when all above are missing)
  */
 
 import * as readline from 'node:readline/promises'
@@ -14,31 +15,37 @@ import { configuration } from '@/configuration'
 import { readSettings, updateSettings } from '@/persistence'
 
 /**
- * Initialize CLI API token
+ * Initialize API token
  * Must be called before any API operations
+ * Priority: HAPI_API_TOKEN > CLI_API_TOKEN > settings file > prompt
  */
 export async function initializeToken(): Promise<void> {
-    // 1. Environment variable has highest priority (allows temporary override)
+    // 1. HAPI_API_TOKEN has highest priority (project mode)
+    if (configuration.hapiApiToken) {
+        return
+    }
+
+    // 2. CLI_API_TOKEN from environment
     if (configuration.cliApiToken) {
         return
     }
 
-    // 2. Read from settings file
+    // 3. Read from settings file
     const settings = await readSettings()
     if (settings.cliApiToken) {
         configuration._setCliApiToken(settings.cliApiToken)
         return
     }
 
-    // 3. Non-TTY environment cannot prompt, fail with clear error
+    // 4. Non-TTY environment cannot prompt, fail with clear error
     if (!process.stdin.isTTY) {
-        throw new Error('CLI_API_TOKEN is required. Set it via environment variable or run `hapi auth login`.')
+        throw new Error('API token is required. Set HAPI_API_TOKEN or CLI_API_TOKEN via environment variable, or run `hapi auth login`.')
     }
 
-    // 4. Interactive prompt
+    // 5. Interactive prompt
     const token = await promptForToken()
 
-    // 5. Save and update configuration
+    // 6. Save and update configuration
     await updateSettings(current => ({
         ...current,
         cliApiToken: token
@@ -49,8 +56,11 @@ export async function initializeToken(): Promise<void> {
 async function promptForToken(): Promise<string> {
     const rl = readline.createInterface({ input, output })
 
-    console.log(chalk.yellow('\nNo CLI_API_TOKEN found.'))
-    console.log(chalk.gray('Where to find the token:'))
+    console.log(chalk.yellow('\nNo API token found.'))
+    console.log(chalk.gray('Token options:'))
+    console.log(chalk.gray('  • Admin mode: Set CLI_API_TOKEN (server-wide access)'))
+    console.log(chalk.gray('  • Project mode: Set HAPI_API_TOKEN (project-specific access)'))
+    console.log(chalk.gray('\nWhere to find CLI_API_TOKEN:'))
     console.log(chalk.gray('  1. Check the server startup logs (first run shows generated token)'))
     console.log(chalk.gray('  2. Read ~/.hapi/settings.json on the server'))
     console.log(chalk.gray('  3. Ask your server administrator (if token is set via env var)\n'))

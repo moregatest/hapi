@@ -2,22 +2,29 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { configuration } from '../../configuration'
 import type { SyncEngine } from '../../sync/syncEngine'
+import type { Store } from '../../store'
 
 const bearerSchema = z.string().regex(/^Bearer\s+(.+)$/i)
+
+const authModeSchema = z.enum(['admin', 'project']).optional()
 
 const createOrLoadSessionSchema = z.object({
     tag: z.string().min(1),
     metadata: z.unknown(),
-    agentState: z.unknown().nullable().optional()
+    agentState: z.unknown().nullable().optional(),
+    authMode: authModeSchema,
+    projectPath: z.string().nullable().optional()
 })
 
 const createOrLoadMachineSchema = z.object({
     id: z.string().min(1),
     metadata: z.unknown(),
-    daemonState: z.unknown().nullable().optional()
+    daemonState: z.unknown().nullable().optional(),
+    authMode: authModeSchema,
+    projectPath: z.string().nullable().optional()
 })
 
-export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono {
+export function createCliRoutes(getSyncEngine: () => SyncEngine | null, getStore: () => Store | null): Hono {
     const app = new Hono()
 
     app.use('*', async (c, next) => {
@@ -32,9 +39,36 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono {
         }
 
         const token = parsed.data.replace(/^Bearer\s+/i, '')
-        if (token !== configuration.cliApiToken) {
-            return c.json({ error: 'Invalid token' }, 401)
+
+        // Check if it's an admin token
+        const isAdminToken = token === configuration.cliApiToken
+
+        if (isAdminToken) {
+            // Admin token - full access
+            c.set('authMode', 'admin')
+            c.set('projectPath', null)
+            c.set('token', token)
+            return await next()
         }
+
+        // Not an admin token - check if it's an existing project token
+        const store = getStore()
+        const projectToken = store ? store.getProjectToken(token) : null
+
+        if (projectToken) {
+            // Existing project token
+            c.set('authMode', 'project')
+            c.set('projectPath', projectToken.projectPath)
+            c.set('token', token)
+            return await next()
+        }
+
+        // New token - will be registered as project token on first use
+        // Allow it through, but mark it as needing registration
+        c.set('authMode', 'project')
+        c.set('projectPath', null)
+        c.set('token', token)
+        c.set('isNewProjectToken', true)
 
         return await next()
     })
@@ -48,6 +82,19 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono {
         const parsed = createOrLoadSessionSchema.safeParse(json)
         if (!parsed.success) {
             return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        // Handle project token binding
+        const authMode = parsed.data.authMode || c.get('authMode')
+        const projectPath = parsed.data.projectPath || c.get('projectPath')
+
+        if (authMode === 'project' && projectPath) {
+            const store = getStore()
+            const token = c.get('token')
+            if (store && token) {
+                // Create or get project token binding
+                store.getOrCreateProjectToken(token, projectPath)
+            }
         }
 
         const session = engine.getOrCreateSession(parsed.data.tag, parsed.data.metadata, parsed.data.agentState ?? null)
@@ -76,6 +123,19 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono {
         const parsed = createOrLoadMachineSchema.safeParse(json)
         if (!parsed.success) {
             return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        // Handle project token binding
+        const authMode = parsed.data.authMode || c.get('authMode')
+        const projectPath = parsed.data.projectPath || c.get('projectPath')
+
+        if (authMode === 'project' && projectPath) {
+            const store = getStore()
+            const token = c.get('token')
+            if (store && token) {
+                // Create or get project token binding
+                store.getOrCreateProjectToken(token, projectPath)
+            }
         }
 
         const machine = engine.getOrCreateMachine(parsed.data.id, parsed.data.metadata, parsed.data.daemonState ?? null)

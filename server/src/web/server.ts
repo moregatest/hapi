@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { serveStatic } from 'hono/bun'
 import { configuration } from '../configuration'
 import type { SyncEngine } from '../sync/syncEngine'
+import type { Store } from '../store'
 import { createAuthMiddleware, type WebAppEnv } from './middleware/auth'
 import { createAuthRoutes } from './routes/auth'
 import { createEventsRoutes } from './routes/events'
@@ -50,6 +51,7 @@ function serveEmbeddedAsset(asset: EmbeddedWebAsset): Response {
 function createWebApp(options: {
     getSyncEngine: () => SyncEngine | null
     getSseManager: () => SSEManager | null
+    getStore: () => Store | null
     jwtSecret: Uint8Array
     embeddedAssetMap: Map<string, EmbeddedWebAsset> | null
 }): Hono<WebAppEnv> {
@@ -67,7 +69,7 @@ function createWebApp(options: {
     app.use('/api/*', corsMiddleware)
     app.use('/cli/*', corsMiddleware)
 
-    app.route('/cli', createCliRoutes(options.getSyncEngine))
+    app.route('/cli', createCliRoutes(options.getSyncEngine, options.getStore))
 
     app.route('/api', createAuthRoutes(options.jwtSecret))
 
@@ -160,6 +162,7 @@ function createWebApp(options: {
 export async function startWebServer(options: {
     getSyncEngine: () => SyncEngine | null
     getSseManager: () => SSEManager | null
+    getStore: () => Store | null
     jwtSecret: Uint8Array
     socketEngine: SocketEngine
 }): Promise<BunServer<WebSocketData>> {
@@ -168,6 +171,7 @@ export async function startWebServer(options: {
     const app = createWebApp({
         getSyncEngine: options.getSyncEngine,
         getSseManager: options.getSseManager,
+        getStore: options.getStore,
         jwtSecret: options.jwtSecret,
         embeddedAssetMap
     })

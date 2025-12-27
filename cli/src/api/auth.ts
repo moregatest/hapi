@@ -1,9 +1,22 @@
 import { configuration } from '@/configuration'
+import type { AuthMode } from '@/configuration'
 
 export function getAuthToken(): string {
-    if (!configuration.cliApiToken) {
-        throw new Error('CLI_API_TOKEN is required')
+    const token = configuration.activeToken
+    if (!token) {
+        throw new Error('API token is required. Set HAPI_API_TOKEN or CLI_API_TOKEN.')
     }
-    return configuration.cliApiToken
+    return token
+}
+
+export function getAuthMode(): AuthMode {
+    return configuration.authMode
+}
+
+export function getProjectPath(): string | null {
+    if (configuration.authMode === 'project') {
+        return process.cwd()
+    }
+    return null
 }
 
