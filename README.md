@@ -125,9 +125,14 @@ Environment variables take priority over the file.
 ## Requirements
 
 - Claude CLI installed and logged in (`claude` on PATH) for Claude Code sessions.
-- Bun if building from source.
+- **Bun >= 1.3.5** if building from source or compiling executables.
+  - ⚠️ **CRITICAL**: Bun v1.3.5+ is required for `bun:bundle` feature used in executable compilation
+  - Versions < 1.3.5 will fail with "Cannot find package 'bundle'" error
+  - Upgrade: `bun upgrade`
 
 ## Build from source
+
+> ⚠️ **IMPORTANT**: Requires Bun >= 1.3.5. Check version with `bun --version`, upgrade with `bun upgrade`
 
 ```bash
 bun install

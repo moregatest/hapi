@@ -206,6 +206,23 @@ async function buildTarget(projectRoot: string, target: string, outdir: string, 
 }
 
 async function main(): Promise<void> {
+    // Check Bun version (requires >= 1.3.5 for bun:bundle module)
+    const bunVersion = Bun.version;
+    const [major, minor, patch] = bunVersion.split('.').map(Number);
+    const minVersion = [1, 3, 5];
+
+    if (major < minVersion[0] ||
+        (major === minVersion[0] && minor < minVersion[1]) ||
+        (major === minVersion[0] && minor === minVersion[1] && patch < minVersion[2])) {
+        console.error('❌ ERROR: Bun version >= 1.3.5 is required for building executables');
+        console.error(`   Current version: ${bunVersion}`);
+        console.error(`   Required version: >= 1.3.5`);
+        console.error('');
+        console.error('   The bun:bundle module (used for compile-time feature flags) is only available in Bun v1.3.5+');
+        console.error('   Upgrade with: bun upgrade');
+        process.exit(1);
+    }
+
     const args = process.argv.slice(2);
     const target = getArg(args, '--target');
     const outdirArg = getArg(args, '--outdir') ?? 'dist-exe';

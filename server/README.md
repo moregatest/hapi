@@ -186,7 +186,16 @@ Access is controlled by:
 
 Transport security depends on HTTPS in front of the server.
 
+## Requirements
+
+- **Bun >= 1.3.5** for building and running the server
+  - ⚠️ **CRITICAL**: Version 1.3.5+ is required when building executables that include this server
+  - Check version: `bun --version`
+  - Upgrade: `bun upgrade`
+
 ## Build for deployment
+
+> ⚠️ **IMPORTANT**: Requires Bun >= 1.3.5
 
 From the repo root:
 

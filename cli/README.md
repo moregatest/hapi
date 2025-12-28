@@ -97,9 +97,16 @@ Data is stored in `~/.hapi/` (or `$HAPI_HOME`):
 ## Requirements
 
 - Claude CLI installed and logged in (`claude` on PATH).
-- Bun for building from source.
+- **Bun >= 1.3.5** for building from source.
+  - ⚠️ **CRITICAL**: Bun v1.3.5+ is required for executable compilation
+  - The `bun:bundle` module (used for compile-time feature flags) is only available in v1.3.5+
+  - Versions < 1.3.5 will fail with "Cannot find package 'bundle'" error
+  - Check version: `bun --version`
+  - Upgrade: `bun upgrade`
 
 ## Build from source
+
+> ⚠️ **IMPORTANT**: Requires Bun >= 1.3.5
 
 From the repo root:
 
