@@ -35,12 +35,14 @@ function getAuthPayload(source: AuthSource): { initData: string } | { accessToke
 
 export function useAuth(authSource: AuthSource | null, baseUrl: string): {
     token: string | null
+    authMode: 'admin' | 'project' | null
     user: AuthResponse['user'] | null
     api: ApiClient | null
     isLoading: boolean
     error: string | null
 } {
     const [token, setToken] = useState<string | null>(null)
+    const [authMode, setAuthMode] = useState<'admin' | 'project' | null>(null)
     const [user, setUser] = useState<AuthResponse['user'] | null>(null)
     const [isLoading, setIsLoading] = useState<boolean>(false)
     const [error, setError] = useState<string | null>(null)
@@ -87,6 +89,7 @@ export function useAuth(authSource: AuthSource | null, baseUrl: string): {
                 const auth = await client.authenticate(getAuthPayload(currentSource))
                 tokenRef.current = auth.token
                 setToken(auth.token)
+                setAuthMode(auth.authMode)
                 setUser(auth.user)
                 setError(null)
                 return auth.token
@@ -95,6 +98,7 @@ export function useAuth(authSource: AuthSource | null, baseUrl: string): {
                 if (options?.hardFail || isExpired) {
                     tokenRef.current = null
                     setToken(null)
+                    setAuthMode(null)
                     setUser(null)
                     const msg = currentSource.type === 'telegram'
                         ? 'Session expired. Reopen the Mini App from Telegram.'
@@ -143,6 +147,7 @@ export function useAuth(authSource: AuthSource | null, baseUrl: string): {
                 const auth = await client.authenticate(getAuthPayload(authSource))
                 if (isCancelled) return
                 setToken(auth.token)
+                setAuthMode(auth.authMode)
                 setUser(auth.user)
             } catch (e) {
                 if (isCancelled) return
@@ -166,6 +171,7 @@ export function useAuth(authSource: AuthSource | null, baseUrl: string): {
         refreshPromiseRef.current = null
         lastRefreshAttemptRef.current = 0
         setToken(null)
+        setAuthMode(null)
         setUser(null)
         setError(null)
     }, [baseUrl])
@@ -233,5 +239,5 @@ export function useAuth(authSource: AuthSource | null, baseUrl: string): {
         }
     }, [authSource, refreshAuth])
 
-    return { token, user, api, isLoading, error }
+    return { token, authMode, user, api, isLoading, error }
 }

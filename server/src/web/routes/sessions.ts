@@ -66,9 +66,21 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
             return engine
         }
 
+        const authMode = c.get('authMode')
+        const projectPath = c.get('projectPath')
+
         const getPendingCount = (s: Session) => s.agentState?.requests ? Object.keys(s.agentState.requests).length : 0
 
-        const sessions = engine.getSessions()
+        let allSessions = engine.getSessions()
+
+        // Filter sessions based on authMode
+        if (authMode === 'project' && projectPath) {
+            // In project mode, only show sessions from the same project
+            allSessions = allSessions.filter(s => s.metadata?.path === projectPath)
+        }
+        // In admin mode, show all sessions (no filter needed)
+
+        const sessions = allSessions
             .sort((a, b) => {
                 // Active sessions first
                 if (a.active !== b.active) {

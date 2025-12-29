@@ -93,9 +93,35 @@ export function createSocketServer(deps: SocketServerDeps): {
     cliNs.use((socket, next) => {
         const auth = socket.handshake.auth as Record<string, unknown> | undefined
         const token = typeof auth?.token === 'string' ? auth.token : null
-        if (token !== configuration.cliApiToken) {
-            return next(new Error('Invalid token'))
+
+        if (!token) {
+            return next(new Error('Missing token'))
         }
+
+        // Check if it's an admin token
+        const isAdminToken = token === configuration.cliApiToken
+
+        if (isAdminToken) {
+            // Admin token - full access
+            socket.data.authMode = 'admin'
+            socket.data.projectPath = null
+            return next()
+        }
+
+        // Not an admin token - check if it's a valid project token
+        const projectToken = deps.store.getProjectToken(token)
+
+        if (projectToken) {
+            // Existing project token
+            socket.data.authMode = 'project'
+            socket.data.projectPath = projectToken.projectPath
+            return next()
+        }
+
+        // New token - allow it as a new project token
+        // It will be registered to a project on first REST API call
+        socket.data.authMode = 'project'
+        socket.data.projectPath = null
         next()
     })
     cliNs.on('connection', (socket) => registerCliHandlers(socket, {

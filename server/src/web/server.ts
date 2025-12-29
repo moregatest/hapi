@@ -71,7 +71,7 @@ function createWebApp(options: {
 
     app.route('/cli', createCliRoutes(options.getSyncEngine, options.getStore))
 
-    app.route('/api', createAuthRoutes(options.jwtSecret))
+    app.route('/api', createAuthRoutes(options.jwtSecret, options.getStore))
 
     app.use('/api/*', createAuthMiddleware(options.jwtSecret))
     app.route('/api', createEventsRoutes(options.getSseManager))

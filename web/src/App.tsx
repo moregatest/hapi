@@ -20,7 +20,7 @@ import { LoadingState } from '@/components/LoadingState'
 export function App() {
     const { serverUrl, baseUrl, setServerUrl, clearServerUrl } = useServerUrl()
     const { authSource, isLoading: isAuthSourceLoading, setAccessToken } = useAuthSource(baseUrl)
-    const { token, api, isLoading: isAuthLoading, error: authError } = useAuth(authSource, baseUrl)
+    const { token, authMode, api, isLoading: isAuthLoading, error: authError } = useAuth(authSource, baseUrl)
     const goBack = useAppGoBack()
     const pathname = useLocation({ select: (location) => location.pathname })
     const matchRoute = useMatchRoute()
@@ -186,7 +186,7 @@ export function App() {
     }
 
     // Auth error
-    if (authError || !token || !api) {
+    if (authError || !token || !api || !authMode) {
         // If using access token and auth failed, show login again
         if (authSource.type === 'accessToken') {
             return (
@@ -216,7 +216,7 @@ export function App() {
     }
 
     return (
-        <AppContextProvider value={{ api, token }}>
+        <AppContextProvider value={{ api, token, authMode }}>
             <SyncingBanner isSyncing={isSyncing} />
             <OfflineBanner />
             <div className="h-full flex flex-col">

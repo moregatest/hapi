@@ -2,10 +2,52 @@
 
 /**
  * CLI entry point for hapi command
- * 
+ *
  * Simple argument parsing without any CLI framework dependencies
  */
 
+// Load .env file from current working directory
+// This must be done BEFORE any other imports to ensure environment variables are set
+import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+
+// Manual .env loading for better compatibility with Bun compiled binaries
+try {
+  const envPath = resolve(process.cwd(), '.env')
+  if (existsSync(envPath)) {
+    const envContent = readFileSync(envPath, 'utf-8')
+    const lines = envContent.split('\n')
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith('#')) continue
+
+      const equalIndex = trimmed.indexOf('=')
+      if (equalIndex === -1) continue
+
+      const key = trimmed.slice(0, equalIndex).trim()
+      let value = trimmed.slice(equalIndex + 1).trim()
+
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+
+      // Override existing environment variables
+      process.env[key] = value
+    }
+
+    if (process.env.HAPI_DEBUG) {
+      console.log('[.env] Loaded from:', envPath)
+    }
+  }
+} catch (error) {
+  if (process.env.HAPI_DEBUG) {
+    console.error('[.env] Failed to load:', error instanceof Error ? error.message : String(error))
+  }
+}
 
 import chalk from 'chalk'
 import type { StartOptions } from '@/claude/runClaude'

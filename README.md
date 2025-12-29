@@ -70,6 +70,26 @@ hapi
 
 4. Open the UI in a browser at the server URL and log in with `CLI_API_TOKEN`.
 
+### Running with PM2 (Background Process)
+
+For production deployment, you can use PM2 to run the server in the background:
+
+```bash
+cd server && pm2 start bun --name "hapi-server" -- run start
+```
+
+Check status:
+```bash
+pm2 status
+pm2 logs hapi-server
+```
+
+Save configuration for auto-restart on reboot:
+```bash
+pm2 save
+pm2 startup
+```
+
 ### Finding Your Access Token
 
 On first run, an Access Token is automatically generated and saved to `~/.hapi/settings.json`.

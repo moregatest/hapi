@@ -101,6 +101,7 @@ export type Machine = {
 
 export type AuthResponse = {
     token: string
+    authMode: 'admin' | 'project'
     user: {
         id: number
         username?: string

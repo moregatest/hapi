@@ -5,11 +5,15 @@ import { jwtVerify } from 'jose'
 export type WebAppEnv = {
     Variables: {
         userId: number
+        authMode: 'admin' | 'project'
+        projectPath?: string
     }
 }
 
 const jwtPayloadSchema = z.object({
-    uid: z.number()
+    uid: z.number(),
+    authMode: z.enum(['admin', 'project']),
+    projectPath: z.string().optional()
 })
 
 export function createAuthMiddleware(jwtSecret: Uint8Array): MiddlewareHandler<WebAppEnv> {
@@ -37,6 +41,10 @@ export function createAuthMiddleware(jwtSecret: Uint8Array): MiddlewareHandler<W
             }
 
             c.set('userId', parsed.data.uid)
+            c.set('authMode', parsed.data.authMode)
+            if (parsed.data.projectPath) {
+                c.set('projectPath', parsed.data.projectPath)
+            }
             await next()
             return
         } catch {

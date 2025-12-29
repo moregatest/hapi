@@ -16,6 +16,7 @@ import { LoadingState } from '@/components/LoadingState'
 import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { isTelegramApp } from '@/hooks/useTelegram'
+import { useServerUrl } from '@/hooks/useServerUrl'
 import { useMessages } from '@/hooks/queries/useMessages'
 import { useMachines } from '@/hooks/queries/useMachines'
 import { useSession } from '@/hooks/queries/useSession'
@@ -65,30 +66,86 @@ function PlusIcon(props: { className?: string }) {
     )
 }
 
+function LogoutIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+    )
+}
+
 function SessionsPage() {
-    const { api } = useAppContext()
+    const { api, authMode } = useAppContext()
     const navigate = useNavigate()
+    const { baseUrl } = useServerUrl()
     const { sessions, isLoading, error, refetch } = useSessions(api)
 
     const handleRefresh = useCallback(() => {
         void refetch()
     }, [refetch])
 
+    const handleLogout = useCallback(() => {
+        // Clear all access tokens by removing all keys that start with the prefix
+        const prefix = 'hapi_access_token::'
+        const keysToRemove: string[] = []
+
+        // Find all keys that match our token pattern
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith(prefix)) {
+                keysToRemove.push(key)
+            }
+        }
+
+        // Remove all matching keys
+        keysToRemove.forEach(key => localStorage.removeItem(key))
+
+        // Reload the page to show login prompt
+        window.location.reload()
+    }, [])
+
+    const isAdmin = authMode === 'admin'
+
     return (
         <div className="flex h-full flex-col">
             <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                 <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
                     <div className="text-xs text-[var(--app-hint)]">
-                        {sessions.length} sessions
+                        {sessions.length} sessions {authMode === 'project' && '(Project Mode)'}
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => navigate({ to: '/sessions/new' })}
-                        className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
-                        title="New Session"
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="p-1.5 rounded-full text-[var(--app-hint)] transition-colors hover:text-[var(--app-link)]"
+                            title="Logout"
+                        >
+                            <LogoutIcon className="h-5 w-5" />
+                        </button>
+                        {isAdmin && (
+                            <button
+                                type="button"
+                                onClick={() => navigate({ to: '/sessions/new' })}
+                                className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
+                                title="New Session"
+                            >
+                                <PlusIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -169,11 +226,16 @@ function SessionPage() {
 }
 
 function NewSessionPage() {
-    const { api } = useAppContext()
+    const { api, authMode } = useAppContext()
     const navigate = useNavigate()
     const goBack = useAppGoBack()
     const queryClient = useQueryClient()
     const { machines, isLoading: machinesLoading, error: machinesError } = useMachines(api, true)
+
+    // Redirect project mode users to sessions list
+    if (authMode !== 'admin') {
+        return <Navigate to="/sessions" replace />
+    }
 
     const handleCancel = useCallback(() => {
         navigate({ to: '/sessions' })
