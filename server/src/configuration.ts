@@ -39,6 +39,8 @@ export interface ConfigSources {
     r2Region: ConfigSource
     r2AutoCreateBucket: ConfigSource
     cloudflareApiToken: ConfigSource
+    allowedFileTypes: ConfigSource
+    maxFileSizeBytes: ConfigSource
 }
 
 export interface R2Configuration {
@@ -99,6 +101,12 @@ class Configuration {
     /** Whether R2 file storage is enabled */
     public readonly r2Enabled: boolean
 
+    /** Allowed MIME types for file uploads */
+    public readonly allowedFileTypes: string[]
+
+    /** Maximum file size in bytes */
+    public readonly maxFileSizeBytes: number
+
     /** Private constructor - use createConfiguration() instead */
     private constructor(
         dataDir: string,
@@ -117,6 +125,8 @@ class Configuration {
         this.webappPort = serverSettings.webappPort
         this.miniAppUrl = serverSettings.webappUrl
         this.corsOrigins = serverSettings.corsOrigins
+        this.allowedFileTypes = serverSettings.allowedFileTypes
+        this.maxFileSizeBytes = serverSettings.maxFileSizeBytes
 
         // CLI API token - will be set by _setCliApiToken() before create() returns
         this.cliApiToken = ''
@@ -126,6 +136,7 @@ class Configuration {
         // Store sources for logging (cliApiToken will be set by _setCliApiToken)
         this.sources = {
             ...sources,
+            cliApiToken: 'generated', // Placeholder, will be set by _setCliApiToken
         } as ConfigSources
 
         // R2 configuration

@@ -147,7 +147,12 @@ export class R2Manager {
      * Build public URL for the object
      */
     private buildPublicUrl(key: string): string {
-        return `https://${this.config.publicDomain}/${key}`
+        // If publicDomain already includes protocol, use it as-is
+        const domain = this.config.publicDomain.startsWith('http://') || this.config.publicDomain.startsWith('https://')
+            ? this.config.publicDomain
+            : `https://${this.config.publicDomain}`
+
+        return `${domain}/${key}`
     }
 
     /**

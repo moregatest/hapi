@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Cache - HAPI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { color: #333; }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .button:hover { background: #0056b3; }
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧹 Clear Cache & Service Worker</h1>
+
+    <p>如果您看不到最新的功能（例如上傳按鈕），請使用此頁面清除緩存。</p>
+
+    <div class="status" id="status">
+        <strong>狀態：</strong> 準備清除緩存
+    </div>
+
+    <button class="button" onclick="clearEverything()">🗑️ 清除所有緩存</button>
+    <button class="button" onclick="unregisterServiceWorkers()">🔄 重新註冊 Service Worker</button>
+    <button class="button" onclick="goHome()">🏠 返回首頁</button>
+
+    <h2>手動清除步驟：</h2>
+    <ol>
+        <li>在瀏覽器中按 <code>F12</code> 打開開發者工具</li>
+        <li>前往 <strong>Application</strong> (Chrome) 或 <strong>Storage</strong> (Firefox) 標籤</li>
+        <li>點擊 <strong>Clear site data</strong> 或 <strong>Clear storage</strong></li>
+        <li>重新加載頁面 (<code>Ctrl+Shift+R</code> 或 <code>Cmd+Shift+R</code>)</li>
+    </ol>
+
+    <h3>手機瀏覽器：</h3>
+    <ul>
+        <li><strong>iOS Safari:</strong> 設定 → Safari → 清除歷史記錄與網站資料</li>
+        <li><strong>Android Chrome:</strong> 設定 → 隱私權 → 清除瀏覽資料</li>
+    </ul>
+
+    <script>
+        function setStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.innerHTML = `<strong>狀態：</strong> ${message}`;
+            status.className = 'status ' + type;
+        }
+
+        async function unregisterServiceWorkers() {
+            try {
+                setStatus('正在註銷 Service Workers...', 'info');
+
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+
+                    if (registrations.length === 0) {
+                        setStatus('沒有找到 Service Worker', 'success');
+                        return;
+                    }
+
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                    }
+
+                    setStatus(`已註銷 ${registrations.length} 個 Service Worker。請刷新頁面。`, 'success');
+                } else {
+                    setStatus('此瀏覽器不支持 Service Worker', 'error');
+                }
+            } catch (error) {
+                setStatus(`錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearCaches() {
+            try {
+                setStatus('正在清除緩存...', 'info');
+
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+
+                    if (cacheNames.length === 0) {
+                        setStatus('沒有找到緩存', 'info');
+                        return;
+                    }
+
+                    await Promise.all(
+                        cacheNames.map(cacheName => caches.delete(cacheName))
+                    );
+
+                    setStatus(`已清除 ${cacheNames.length} 個緩存`, 'success');
+                } else {
+                    setStatus('此瀏覽器不支持 Cache API', 'error');
+                }
+            } catch (error) {
+                setStatus(`錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearLocalStorage() {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                setStatus('已清除 Local Storage 和 Session Storage', 'success');
+            } catch (error) {
+                setStatus(`錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearEverything() {
+            try {
+                setStatus('正在清除所有數據...', 'info');
+
+                // Unregister service workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                }
+
+                // Clear all caches
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                }
+
+                // Clear storage
+                localStorage.clear();
+                sessionStorage.clear();
+
+                setStatus('✅ 所有緩存已清除！請刷新頁面或返回首頁。', 'success');
+
+                // Automatically reload after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+
+            } catch (error) {
+                setStatus(`錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        function goHome() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

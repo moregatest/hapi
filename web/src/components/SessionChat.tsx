@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
@@ -35,6 +35,8 @@ export function SessionChat(props: {
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const { abortSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(props.api, props.session.id)
+    const [isUploading, setIsUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         normalizedCacheRef.current.clear()
@@ -127,6 +129,38 @@ export function SessionChat(props: {
         })
     }, [navigate, props.session.id])
 
+    const handleUploadClick = useCallback(() => {
+        fileInputRef.current?.click()
+    }, [])
+
+    const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (!file) return
+
+        try {
+            setIsUploading(true)
+            haptic.impact('light')
+
+            const result = await props.api.uploadFile(file, props.session.id)
+
+            // Send a message with the uploaded file URL
+            const message = result.file.publicUrl
+            props.onSend(message)
+
+            haptic.notification('success')
+        } catch (error) {
+            console.error('File upload failed:', error)
+            haptic.notification('error')
+            alert(error instanceof Error ? error.message : 'File upload failed')
+        } finally {
+            setIsUploading(false)
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+            }
+        }
+    }, [props.api, props.session.id, props.onSend, haptic])
+
     const runtime = useHappyRuntime({
         session: props.session,
         blocks: reconciled.blocks,
@@ -137,6 +171,14 @@ export function SessionChat(props: {
 
     return (
         <div className="flex h-full flex-col">
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf,.txt,.csv,.json,.zip,.rar,.7z,.tar,.gz"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+            />
+
             <SessionHeader
                 session={props.session}
                 onBack={props.onBack}
@@ -184,6 +226,7 @@ export function SessionChat(props: {
                         onModelModeChange={handleModelModeChange}
                         onSwitchToRemote={handleSwitchToRemote}
                         onTerminal={props.session.active ? handleViewTerminal : undefined}
+                        onUpload={props.session.active && !isUploading ? handleUploadClick : undefined}
                     />
                 </div>
             </AssistantRuntimeProvider>

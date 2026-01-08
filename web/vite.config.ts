@@ -21,7 +21,7 @@ export default defineConfig({
     plugins: [
         react(),
         VitePWA({
-            registerType: 'autoUpdate',
+            registerType: 'prompt',
             includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'mask-icon.svg'],
             manifest: {
                 name: 'Hapi',
@@ -58,6 +58,9 @@ export default defineConfig({
                 ]
             },
             workbox: {
+                cleanupOutdatedCaches: true,
+                skipWaiting: false,
+                clientsClaim: true,
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
                 runtimeCaching: [
                     {
@@ -134,6 +137,14 @@ export default defineConfig({
     },
     build: {
         outDir: 'dist',
-        emptyOutDir: true
+        emptyOutDir: true,
+        rollupOptions: {
+            output: {
+                // Add hash to filenames for cache busting
+                entryFileNames: 'assets/[name]-[hash].js',
+                chunkFileNames: 'assets/[name]-[hash].js',
+                assetFileNames: 'assets/[name]-[hash].[ext]'
+            }
+        }
     }
 })

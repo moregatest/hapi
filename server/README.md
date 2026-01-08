@@ -32,6 +32,11 @@ See `src/configuration.ts` for all options.
 - `HAPI_HOME` - Data directory (default: ~/.hapi).
 - `DB_PATH` - SQLite database path (default: HAPI_HOME/hapi.db).
 
+### Optional (File Upload)
+
+- `HAPI_ALLOWED_FILE_TYPES` - Comma-separated MIME types (default: images, PDF, text, JSON, ZIP).
+- `HAPI_MAX_FILE_SIZE_MB` - Maximum file size in megabytes (default: 100, max: 1000).
+
 ## Running
 
 Binary (single executable):

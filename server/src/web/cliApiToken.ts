@@ -30,7 +30,11 @@ export interface Settings {
     r2PublicDomain?: string
     r2Region?: string
     r2AutoCreateBucket?: boolean
+    r2FileExpirationHours?: number
     cloudflareApiToken?: string
+    // File upload configuration
+    allowedFileTypes?: string[]
+    maxFileSizeBytes?: number
 }
 
 export interface CliApiTokenResult {

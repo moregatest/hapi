@@ -3,23 +3,8 @@ import type { R2Manager } from '../../r2/r2Manager'
 import type { SyncEngine } from '../../sync/syncEngine'
 import type { Store } from '../../store'
 import type { WebAppEnv } from '../middleware/auth'
+import { getConfiguration } from '../../configuration'
 import { requireSyncEngine } from './guards'
-
-const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
-
-const ALLOWED_MIME_TYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml',
-    'application/pdf',
-    'text/plain',
-    'text/csv',
-    'text/markdown',
-    'application/json',
-    'application/zip',
-]
 
 export function createFilesRoutes(
     getR2Manager: () => R2Manager | null,
@@ -52,14 +37,20 @@ export function createFilesRoutes(
                 return c.json({ error: 'No file provided' }, 400)
             }
 
+            // Get configuration
+            const config = getConfiguration()
+
             // Validate file size
-            if (file.size > MAX_FILE_SIZE) {
-                return c.json({ error: 'File too large (max 100MB)' }, 400)
+            if (file.size > config.maxFileSizeBytes) {
+                const maxMB = Math.round(config.maxFileSizeBytes / (1024 * 1024))
+                return c.json({ error: `File too large (max ${maxMB}MB)` }, 400)
             }
 
             // Validate file type
-            if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-                return c.json({ error: 'File type not allowed' }, 400)
+            if (!config.allowedFileTypes.includes(file.type)) {
+                return c.json({
+                    error: `File type not allowed. Allowed types: ${config.allowedFileTypes.join(', ')}`
+                }, 400)
             }
 
             // Permission check

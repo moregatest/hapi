@@ -14,6 +14,13 @@ import type { RpcRegistry } from '../socket/rpcRegistry'
 import type { SSEManager } from '../sse/sseManager'
 import { extractTodoWriteTodosFromMessageContent, TodosSchema, type TodoItem } from './todos'
 
+const logger = {
+    debug: (msg: string) => console.log(`[DEBUG] ${msg}`),
+    info: (msg: string) => console.log(`[INFO] ${msg}`),
+    warn: (msg: string) => console.warn(`[WARN] ${msg}`),
+    error: (msg: string) => console.error(`[ERROR] ${msg}`),
+}
+
 export type ConnectionStatus = 'disconnected' | 'connected'
 
 export const MetadataSchema = z.object({
@@ -727,27 +734,9 @@ export class SyncEngine {
     }
 
     async sendFileUploadNotification(sessionId: string, file: StoredFile): Promise<void> {
-        const iconMap: Record<string, string> = {
-            'image/': '🖼️',
-            'application/pdf': '📄',
-            'text/': '📝',
-            'application/zip': '🗜️',
-        }
-
-        let icon = '📎'
-        for (const [prefix, emoji] of Object.entries(iconMap)) {
-            if (file.contentType.startsWith(prefix)) {
-                icon = emoji
-                break
-            }
-        }
-
-        const sizeKB = (file.fileSize / 1024).toFixed(2)
-        const text = `${icon} File uploaded: ${file.fileName} (${sizeKB} KB)\n🔗 ${file.publicUrl}`
-
-        await this.sendMessage(sessionId, {
-            text,
-            sentFrom: 'webapp',
-        })
+        // Server no longer sends a message to the conversation
+        // The web client will send a plain URL message instead
+        // This function is kept for future use (logging, events, etc.)
+        logger.debug(`[SYNC] File uploaded: ${file.fileName} (${file.fileSize} bytes) -> ${file.publicUrl}`)
     }
 }

@@ -13,6 +13,7 @@ import { AppContextProvider } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { LoginPrompt } from '@/components/LoginPrompt'
 import { InstallPrompt } from '@/components/InstallPrompt'
+import { UpdatePrompt } from '@/components/UpdatePrompt'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { SyncingBanner } from '@/components/SyncingBanner'
 import { LoadingState } from '@/components/LoadingState'
@@ -223,6 +224,7 @@ export function App() {
                 <Outlet />
             </div>
             <InstallPrompt />
+            <UpdatePrompt />
         </AppContextProvider>
     )
 }

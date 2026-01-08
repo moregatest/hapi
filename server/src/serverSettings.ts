@@ -26,6 +26,8 @@ export interface ServerSettings {
     r2AutoCreateBucket: boolean
     r2FileExpirationHours: number
     cloudflareApiToken: string | null
+    allowedFileTypes: string[]
+    maxFileSizeBytes: number
 }
 
 export interface ServerSettingsResult {
@@ -45,6 +47,8 @@ export interface ServerSettingsResult {
         r2AutoCreateBucket: 'env' | 'file' | 'default'
         r2FileExpirationHours: 'env' | 'file' | 'default'
         cloudflareApiToken: 'env' | 'file' | 'default'
+        allowedFileTypes: 'env' | 'file' | 'default'
+        maxFileSizeBytes: 'env' | 'file' | 'default'
     }
     savedToFile: boolean
 }
@@ -96,6 +100,51 @@ function deriveCorsOrigins(webappUrl: string): string[] {
 }
 
 /**
+ * Parse and validate comma-separated MIME types
+ * Format: type/subtype (e.g., "image/jpeg")
+ */
+function parseAllowedFileTypes(str: string): string[] {
+    const types = str
+        .split(',')
+        .map(type => type.trim())
+        .filter(Boolean)
+        .filter(type => {
+            if (!type.includes('/')) {
+                console.warn(`[Server] Invalid MIME type format: ${type} (skipped)`)
+                return false
+            }
+            return true
+        })
+
+    if (types.length === 0) {
+        console.warn('[Server] No valid MIME types after parsing, using defaults')
+        return []
+    }
+
+    return types
+}
+
+/**
+ * Parse and validate max file size in MB
+ * Returns size in bytes
+ */
+function parseMaxFileSize(str: string): number {
+    const mb = parseInt(str, 10)
+
+    if (!Number.isFinite(mb) || mb <= 0) {
+        console.warn('[Server] Invalid HAPI_MAX_FILE_SIZE_MB, must be positive integer')
+        return 0
+    }
+
+    if (mb > 1000) {
+        console.warn('[Server] HAPI_MAX_FILE_SIZE_MB exceeds 1000MB, using 1000MB')
+        return 1000 * 1024 * 1024
+    }
+
+    return mb * 1024 * 1024
+}
+
+/**
  * Load server settings with priority: env > file > default
  * Saves new env values to file when not already present
  */
@@ -126,6 +175,8 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         r2AutoCreateBucket: 'default',
         r2FileExpirationHours: 'default',
         cloudflareApiToken: 'default',
+        allowedFileTypes: 'default',
+        maxFileSizeBytes: 'default',
     }
 
     // telegramBotToken: env > file > null
@@ -336,6 +387,65 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         sources.cloudflareApiToken = 'file'
     }
 
+    // Default MIME types (matching current hardcoded values in files.ts)
+    const DEFAULT_ALLOWED_FILE_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+        'application/pdf',
+        'text/plain',
+        'text/csv',
+        'text/markdown',
+        'application/json',
+        'application/zip',
+    ]
+
+    const DEFAULT_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024 // 100MB
+
+    // allowedFileTypes: env > file > default
+    let allowedFileTypes: string[]
+    if (process.env.HAPI_ALLOWED_FILE_TYPES) {
+        const parsed = parseAllowedFileTypes(process.env.HAPI_ALLOWED_FILE_TYPES)
+        if (parsed.length > 0) {
+            allowedFileTypes = parsed
+            sources.allowedFileTypes = 'env'
+            if (settings.allowedFileTypes === undefined) {
+                settings.allowedFileTypes = allowedFileTypes
+                needsSave = true
+            }
+        } else {
+            allowedFileTypes = DEFAULT_ALLOWED_FILE_TYPES
+        }
+    } else if (settings.allowedFileTypes !== undefined && settings.allowedFileTypes.length > 0) {
+        allowedFileTypes = settings.allowedFileTypes
+        sources.allowedFileTypes = 'file'
+    } else {
+        allowedFileTypes = DEFAULT_ALLOWED_FILE_TYPES
+    }
+
+    // maxFileSizeBytes: env > file > default
+    let maxFileSizeBytes: number
+    if (process.env.HAPI_MAX_FILE_SIZE_MB) {
+        const parsed = parseMaxFileSize(process.env.HAPI_MAX_FILE_SIZE_MB)
+        if (parsed > 0) {
+            maxFileSizeBytes = parsed
+            sources.maxFileSizeBytes = 'env'
+            if (settings.maxFileSizeBytes === undefined) {
+                settings.maxFileSizeBytes = maxFileSizeBytes
+                needsSave = true
+            }
+        } else {
+            maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE_BYTES
+        }
+    } else if (settings.maxFileSizeBytes !== undefined && settings.maxFileSizeBytes > 0) {
+        maxFileSizeBytes = settings.maxFileSizeBytes
+        sources.maxFileSizeBytes = 'file'
+    } else {
+        maxFileSizeBytes = DEFAULT_MAX_FILE_SIZE_BYTES
+    }
+
     // Save settings if any new values were added
     if (needsSave) {
         await writeSettings(settingsFile, settings)
@@ -357,6 +467,8 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
             r2AutoCreateBucket,
             r2FileExpirationHours,
             cloudflareApiToken,
+            allowedFileTypes,
+            maxFileSizeBytes,
         },
         sources,
         savedToFile: needsSave,

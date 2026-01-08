@@ -4,7 +4,6 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
 import './index.css'
-import { registerSW } from 'virtual:pwa-register'
 import { getTelegramWebApp, isTelegramEnvironment, loadTelegramSdk } from './hooks/useTelegram'
 import { queryClient } from './lib/query-client'
 import { createAppRouter } from './router'
@@ -37,26 +36,8 @@ async function bootstrap() {
         await loadTelegramSdk()
     }
 
-    const updateSW = registerSW({
-        onNeedRefresh() {
-            if (confirm('New version available! Reload to update?')) {
-                updateSW(true)
-            }
-        },
-        onOfflineReady() {
-            console.log('App ready for offline use')
-        },
-        onRegistered(registration) {
-            if (registration) {
-                setInterval(() => {
-                    registration.update()
-                }, 60 * 60 * 1000)
-            }
-        },
-        onRegisterError(error) {
-            console.error('SW registration error:', error)
-        }
-    })
+    // Service Worker registration is now handled by useServiceWorkerUpdate hook
+    // This provides better UI/UX with a friendly update prompt banner
 
     const history = isTelegram
         ? createMemoryHistory({ initialEntries: [getInitialPath()] })

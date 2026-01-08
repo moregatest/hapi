@@ -43,11 +43,21 @@ function findWebappDistDir(): { distDir: string; indexHtmlPath: string } {
 }
 
 function serveEmbeddedAsset(asset: EmbeddedWebAsset): Response {
-    return new Response(Bun.file(asset.sourcePath), {
-        headers: {
-            'Content-Type': asset.mimeType
-        }
-    })
+    const headers: Record<string, string> = {
+        'Content-Type': asset.mimeType
+    }
+
+    // Cache static assets with hash in filename for 1 year
+    // Don't cache index.html
+    if (asset.path !== '/index.html' && /\.[a-f0-9]{8,}\.(js|css|woff|woff2|ttf|eot|png|jpg|jpeg|gif|svg|ico)$/i.test(asset.path)) {
+        headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    } else {
+        headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        headers['Pragma'] = 'no-cache'
+        headers['Expires'] = '0'
+    }
+
+    return new Response(Bun.file(asset.sourcePath), { headers })
 }
 
 function createWebApp(options: {
@@ -139,6 +149,35 @@ function createWebApp(options: {
         })
         return app
     }
+
+    // Add cache control headers for static assets
+    app.use('*', async (c, next) => {
+        await next()
+
+        // Only add headers for GET/HEAD requests
+        if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+            return
+        }
+
+        // Skip API routes
+        if (c.req.path.startsWith('/api')) {
+            return
+        }
+
+        const response = c.res
+        if (!response) return
+
+        // Cache static assets with hash in filename for 1 year
+        if (/\/assets\/[^/]+\.[a-f0-9]{8,}\.(js|css|woff|woff2|ttf|eot|png|jpg|jpeg|gif|svg|ico)$/i.test(c.req.path)) {
+            c.header('Cache-Control', 'public, max-age=31536000, immutable')
+        }
+        // Don't cache index.html and other HTML files
+        else if (c.req.path.endsWith('.html') || c.req.path === '/' || !c.req.path.includes('.')) {
+            c.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            c.header('Pragma', 'no-cache')
+            c.header('Expires', '0')
+        }
+    })
 
     app.use('/assets/*', serveStatic({ root: distDir }))
 

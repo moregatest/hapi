@@ -233,4 +233,43 @@ export class ApiClient {
             body: JSON.stringify({ directory, agent })
         })
     }
+
+    async uploadFile(file: File, sessionId?: string): Promise<{ file: { id: string; fileName: string; fileSize: number; publicUrl: string; contentType: string; r2Key: string; uploadedBy: string; createdAt: number; expiresAt: number | null; sessionId: string | null; projectPath: string | null; metadata: any } }> {
+        const formData = new FormData()
+        formData.append('file', file)
+        if (sessionId) {
+            formData.append('sessionId', sessionId)
+        }
+
+        const headers = new Headers()
+        const liveToken = this.getToken ? this.getToken() : null
+        const authToken = liveToken ?? this.token
+        if (authToken) {
+            headers.set('authorization', `Bearer ${authToken}`)
+        }
+
+        const res = await fetch(this.buildUrl('/api/files'), {
+            method: 'POST',
+            headers,
+            body: formData
+        })
+
+        if (res.status === 401) {
+            if (this.onUnauthorized) {
+                const refreshed = await this.onUnauthorized()
+                if (refreshed) {
+                    this.token = refreshed
+                    return await this.uploadFile(file, sessionId)
+                }
+            }
+            throw new Error('Session expired. Please sign in again.')
+        }
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => '')
+            throw new Error(`Upload failed: HTTP ${res.status} ${res.statusText}: ${body}`)
+        }
+
+        return await res.json()
+    }
 }

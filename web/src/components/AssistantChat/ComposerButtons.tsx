@@ -90,6 +90,26 @@ function AbortIcon(props: { spinning: boolean }) {
     )
 }
 
+function UploadIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+    )
+}
+
 function SendIcon() {
     return (
         <svg
@@ -117,6 +137,10 @@ export function ComposerButtons(props: {
     showTerminalButton: boolean
     terminalDisabled: boolean
     onTerminal: () => void
+    showUploadButton?: boolean
+    uploadDisabled?: boolean
+    isUploading?: boolean
+    onUpload?: () => void
     showAbortButton: boolean
     abortDisabled: boolean
     isAborting: boolean
@@ -127,14 +151,14 @@ export function ComposerButtons(props: {
     onSwitch: () => void
 }) {
     return (
-        <div className="flex items-center justify-between px-2 pb-2">
-            <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2 px-2 pb-2">
+            <div className="flex items-center gap-1 flex-shrink min-w-0 overflow-x-auto">
                 {props.showSettingsButton ? (
                     <button
                         type="button"
                         aria-label="Settings"
                         title="Settings"
-                        className="settings-button flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)]"
+                        className="settings-button flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)]"
                         onClick={props.onSettingsToggle}
                         disabled={props.controlsDisabled}
                     >
@@ -147,11 +171,24 @@ export function ComposerButtons(props: {
                         type="button"
                         aria-label="Terminal"
                         title="Terminal"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={props.onTerminal}
                         disabled={props.terminalDisabled}
                     >
                         <TerminalIcon />
+                    </button>
+                ) : null}
+
+                {props.showUploadButton ? (
+                    <button
+                        type="button"
+                        aria-label="Upload file"
+                        title="Upload file"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={props.onUpload}
+                        disabled={props.uploadDisabled || props.isUploading}
+                    >
+                        <UploadIcon />
                     </button>
                 ) : null}
 
@@ -161,7 +198,7 @@ export function ComposerButtons(props: {
                         aria-label="Abort"
                         title="Abort"
                         disabled={props.abortDisabled}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={props.onAbort}
                     >
                         <AbortIcon spinning={props.isAborting} />
@@ -174,7 +211,7 @@ export function ComposerButtons(props: {
                         aria-label="Switch to remote"
                         title="Switch to remote mode"
                         disabled={props.switchDisabled}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={props.onSwitch}
                     >
                         <SwitchToRemoteIcon />
@@ -186,7 +223,7 @@ export function ComposerButtons(props: {
                 disabled={props.controlsDisabled || !props.canSend}
                 aria-label="Send"
                 title="Send"
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-colors ${
                     props.canSend && !props.controlsDisabled
                         ? 'bg-black text-white'
                         : 'bg-[#C0C0C0] text-white'
