@@ -16,6 +16,8 @@ import { startWebServer } from './web/server'
 import { getOrCreateJwtSecret } from './web/jwtSecret'
 import { createSocketServer } from './socket/server'
 import { SSEManager } from './sse/sseManager'
+import { R2Manager } from './r2/r2Manager'
+import { FileCleanupScheduler } from './r2/fileCleanupScheduler'
 import type { Server as BunServer } from 'bun'
 import type { WebSocketData } from '@socket.io/bun-engine'
 
@@ -38,6 +40,8 @@ let happyBot: HappyBot | null = null
 let webServer: BunServer<WebSocketData> | null = null
 let sseManager: SSEManager | null = null
 let store: Store | null = null
+let r2Manager: R2Manager | null = null
+let fileCleanupScheduler: FileCleanupScheduler | null = null
 
 async function main() {
     console.log('HAPI Server starting...')
@@ -83,6 +87,26 @@ async function main() {
 
     sseManager = new SSEManager(30_000)
 
+    // Initialize R2Manager if configured
+    if (config.r2Enabled && config.r2Config) {
+        console.log(`[Server] R2: enabled (bucket: ${config.r2Config.bucketName})`)
+        r2Manager = new R2Manager(config.r2Config)
+        try {
+            await r2Manager.ensureBucketExists()
+            console.log('[Server] R2: bucket verified/created')
+
+            // Start file cleanup scheduler
+            fileCleanupScheduler = new FileCleanupScheduler(store, r2Manager)
+            fileCleanupScheduler.start()
+        } catch (error: any) {
+            console.error('[Server] R2: failed to verify bucket:', error.message)
+            console.error('[Server] R2: file upload will not be available')
+            r2Manager = null
+        }
+    } else {
+        console.log('[Server] R2: disabled (configure HAPI_R2_* environment variables to enable)')
+    }
+
     const socketServer = createSocketServer({
         store,
         jwtSecret,
@@ -110,6 +134,7 @@ async function main() {
         getSyncEngine: () => syncEngine,
         getSseManager: () => sseManager,
         getStore: () => store,
+        getR2Manager: () => r2Manager,
         jwtSecret,
         socketEngine: socketServer.engine
     })
@@ -127,6 +152,7 @@ async function main() {
         await happyBot?.stop()
         syncEngine?.stop()
         sseManager?.stop()
+        fileCleanupScheduler?.stop()
         webServer?.stop()
         process.exit(0)
     }

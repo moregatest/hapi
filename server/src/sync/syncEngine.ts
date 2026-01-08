@@ -9,7 +9,7 @@
 
 import { z } from 'zod'
 import type { Server } from 'socket.io'
-import type { Store } from '../store'
+import type { Store, StoredFile } from '../store'
 import type { RpcRegistry } from '../socket/rpcRegistry'
 import type { SSEManager } from '../sse/sseManager'
 import { extractTodoWriteTodosFromMessageContent, TodosSchema, type TodoItem } from './todos'
@@ -724,5 +724,30 @@ export class SyncEngine {
         } catch {
             return response
         }
+    }
+
+    async sendFileUploadNotification(sessionId: string, file: StoredFile): Promise<void> {
+        const iconMap: Record<string, string> = {
+            'image/': '🖼️',
+            'application/pdf': '📄',
+            'text/': '📝',
+            'application/zip': '🗜️',
+        }
+
+        let icon = '📎'
+        for (const [prefix, emoji] of Object.entries(iconMap)) {
+            if (file.contentType.startsWith(prefix)) {
+                icon = emoji
+                break
+            }
+        }
+
+        const sizeKB = (file.fileSize / 1024).toFixed(2)
+        const text = `${icon} File uploaded: ${file.fileName} (${sizeKB} KB)\n🔗 ${file.publicUrl}`
+
+        await this.sendMessage(sessionId, {
+            text,
+            sentFrom: 'webapp',
+        })
     }
 }

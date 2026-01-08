@@ -17,6 +17,15 @@ export interface ServerSettings {
     webappPort: number
     webappUrl: string
     corsOrigins: string[]
+    r2AccountId: string | null
+    r2AccessKeyId: string | null
+    r2SecretAccessKey: string | null
+    r2BucketName: string | null
+    r2PublicDomain: string | null
+    r2Region: string
+    r2AutoCreateBucket: boolean
+    r2FileExpirationHours: number
+    cloudflareApiToken: string | null
 }
 
 export interface ServerSettingsResult {
@@ -27,6 +36,15 @@ export interface ServerSettingsResult {
         webappPort: 'env' | 'file' | 'default'
         webappUrl: 'env' | 'file' | 'default'
         corsOrigins: 'env' | 'file' | 'default'
+        r2AccountId: 'env' | 'file' | 'default'
+        r2AccessKeyId: 'env' | 'file' | 'default'
+        r2SecretAccessKey: 'env' | 'file' | 'default'
+        r2BucketName: 'env' | 'file' | 'default'
+        r2PublicDomain: 'env' | 'file' | 'default'
+        r2Region: 'env' | 'file' | 'default'
+        r2AutoCreateBucket: 'env' | 'file' | 'default'
+        r2FileExpirationHours: 'env' | 'file' | 'default'
+        cloudflareApiToken: 'env' | 'file' | 'default'
     }
     savedToFile: boolean
 }
@@ -99,6 +117,15 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         webappPort: 'default',
         webappUrl: 'default',
         corsOrigins: 'default',
+        r2AccountId: 'default',
+        r2AccessKeyId: 'default',
+        r2SecretAccessKey: 'default',
+        r2BucketName: 'default',
+        r2PublicDomain: 'default',
+        r2Region: 'default',
+        r2AutoCreateBucket: 'default',
+        r2FileExpirationHours: 'default',
+        cloudflareApiToken: 'default',
     }
 
     // telegramBotToken: env > file > null
@@ -177,6 +204,138 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         corsOrigins = deriveCorsOrigins(webappUrl)
     }
 
+    // r2AccountId: env > file > null
+    let r2AccountId: string | null = null
+    if (process.env.HAPI_R2_ACCOUNT_ID) {
+        r2AccountId = process.env.HAPI_R2_ACCOUNT_ID
+        sources.r2AccountId = 'env'
+        if (settings.r2AccountId === undefined) {
+            settings.r2AccountId = r2AccountId
+            needsSave = true
+        }
+    } else if (settings.r2AccountId !== undefined) {
+        r2AccountId = settings.r2AccountId
+        sources.r2AccountId = 'file'
+    }
+
+    // r2AccessKeyId: env > file > null
+    let r2AccessKeyId: string | null = null
+    if (process.env.HAPI_R2_ACCESS_KEY_ID) {
+        r2AccessKeyId = process.env.HAPI_R2_ACCESS_KEY_ID
+        sources.r2AccessKeyId = 'env'
+        if (settings.r2AccessKeyId === undefined) {
+            settings.r2AccessKeyId = r2AccessKeyId
+            needsSave = true
+        }
+    } else if (settings.r2AccessKeyId !== undefined) {
+        r2AccessKeyId = settings.r2AccessKeyId
+        sources.r2AccessKeyId = 'file'
+    }
+
+    // r2SecretAccessKey: env > file > null
+    let r2SecretAccessKey: string | null = null
+    if (process.env.HAPI_R2_SECRET_ACCESS_KEY) {
+        r2SecretAccessKey = process.env.HAPI_R2_SECRET_ACCESS_KEY
+        sources.r2SecretAccessKey = 'env'
+        if (settings.r2SecretAccessKey === undefined) {
+            settings.r2SecretAccessKey = r2SecretAccessKey
+            needsSave = true
+        }
+    } else if (settings.r2SecretAccessKey !== undefined) {
+        r2SecretAccessKey = settings.r2SecretAccessKey
+        sources.r2SecretAccessKey = 'file'
+    }
+
+    // r2BucketName: env > file > null
+    let r2BucketName: string | null = null
+    if (process.env.HAPI_R2_BUCKET_NAME) {
+        r2BucketName = process.env.HAPI_R2_BUCKET_NAME
+        sources.r2BucketName = 'env'
+        if (settings.r2BucketName === undefined) {
+            settings.r2BucketName = r2BucketName
+            needsSave = true
+        }
+    } else if (settings.r2BucketName !== undefined) {
+        r2BucketName = settings.r2BucketName
+        sources.r2BucketName = 'file'
+    }
+
+    // r2PublicDomain: env > file > null
+    let r2PublicDomain: string | null = null
+    if (process.env.HAPI_R2_PUBLIC_DOMAIN) {
+        r2PublicDomain = process.env.HAPI_R2_PUBLIC_DOMAIN
+        sources.r2PublicDomain = 'env'
+        if (settings.r2PublicDomain === undefined) {
+            settings.r2PublicDomain = r2PublicDomain
+            needsSave = true
+        }
+    } else if (settings.r2PublicDomain !== undefined) {
+        r2PublicDomain = settings.r2PublicDomain
+        sources.r2PublicDomain = 'file'
+    }
+
+    // r2Region: env > file > 'auto'
+    let r2Region = 'auto'
+    if (process.env.HAPI_R2_REGION) {
+        r2Region = process.env.HAPI_R2_REGION
+        sources.r2Region = 'env'
+        if (settings.r2Region === undefined) {
+            settings.r2Region = r2Region
+            needsSave = true
+        }
+    } else if (settings.r2Region !== undefined) {
+        r2Region = settings.r2Region
+        sources.r2Region = 'file'
+    }
+
+    // r2AutoCreateBucket: env > file > false
+    let r2AutoCreateBucket = false
+    if (process.env.HAPI_R2_AUTO_CREATE_BUCKET) {
+        const value = process.env.HAPI_R2_AUTO_CREATE_BUCKET.toLowerCase()
+        r2AutoCreateBucket = value === 'true' || value === '1' || value === 'yes'
+        sources.r2AutoCreateBucket = 'env'
+        if (settings.r2AutoCreateBucket === undefined) {
+            settings.r2AutoCreateBucket = r2AutoCreateBucket
+            needsSave = true
+        }
+    } else if (settings.r2AutoCreateBucket !== undefined) {
+        r2AutoCreateBucket = settings.r2AutoCreateBucket
+        sources.r2AutoCreateBucket = 'file'
+    }
+
+    // r2FileExpirationHours: env > file > 1
+    let r2FileExpirationHours = 1
+    if (process.env.HAPI_R2_FILE_EXPIRATION_HOURS) {
+        const parsed = parseInt(process.env.HAPI_R2_FILE_EXPIRATION_HOURS, 10)
+        if (Number.isFinite(parsed) && parsed > 0) {
+            r2FileExpirationHours = parsed
+            sources.r2FileExpirationHours = 'env'
+            if (settings.r2FileExpirationHours === undefined) {
+                settings.r2FileExpirationHours = r2FileExpirationHours
+                needsSave = true
+            }
+        } else {
+            console.warn('[Server] Invalid HAPI_R2_FILE_EXPIRATION_HOURS, using default: 1 hour')
+        }
+    } else if (settings.r2FileExpirationHours !== undefined) {
+        r2FileExpirationHours = settings.r2FileExpirationHours
+        sources.r2FileExpirationHours = 'file'
+    }
+
+    // cloudflareApiToken: env > file > null
+    let cloudflareApiToken: string | null = null
+    if (process.env.HAPI_CLOUDFLARE_API_TOKEN) {
+        cloudflareApiToken = process.env.HAPI_CLOUDFLARE_API_TOKEN
+        sources.cloudflareApiToken = 'env'
+        if (settings.cloudflareApiToken === undefined) {
+            settings.cloudflareApiToken = cloudflareApiToken
+            needsSave = true
+        }
+    } else if (settings.cloudflareApiToken !== undefined) {
+        cloudflareApiToken = settings.cloudflareApiToken
+        sources.cloudflareApiToken = 'file'
+    }
+
     // Save settings if any new values were added
     if (needsSave) {
         await writeSettings(settingsFile, settings)
@@ -189,6 +348,15 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
             webappPort,
             webappUrl,
             corsOrigins,
+            r2AccountId,
+            r2AccessKeyId,
+            r2SecretAccessKey,
+            r2BucketName,
+            r2PublicDomain,
+            r2Region,
+            r2AutoCreateBucket,
+            r2FileExpirationHours,
+            cloudflareApiToken,
         },
         sources,
         savedToFile: needsSave,

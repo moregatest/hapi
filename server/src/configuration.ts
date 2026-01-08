@@ -31,6 +31,26 @@ export interface ConfigSources {
     webappUrl: ConfigSource
     corsOrigins: ConfigSource
     cliApiToken: 'env' | 'file' | 'generated'
+    r2AccountId: ConfigSource
+    r2AccessKeyId: ConfigSource
+    r2SecretAccessKey: ConfigSource
+    r2BucketName: ConfigSource
+    r2PublicDomain: ConfigSource
+    r2Region: ConfigSource
+    r2AutoCreateBucket: ConfigSource
+    cloudflareApiToken: ConfigSource
+}
+
+export interface R2Configuration {
+    accountId: string
+    accessKeyId: string
+    secretAccessKey: string
+    bucketName: string
+    publicDomain: string
+    region: string
+    autoCreateBucket: boolean
+    fileExpirationHours: number
+    cloudflareApiToken: string | null
 }
 
 class Configuration {
@@ -73,6 +93,12 @@ class Configuration {
     /** Sources of each configuration value */
     public readonly sources: ConfigSources
 
+    /** R2 file storage configuration */
+    public readonly r2Config: R2Configuration | null
+
+    /** Whether R2 file storage is enabled */
+    public readonly r2Enabled: boolean
+
     /** Private constructor - use createConfiguration() instead */
     private constructor(
         dataDir: string,
@@ -101,6 +127,32 @@ class Configuration {
         this.sources = {
             ...sources,
         } as ConfigSources
+
+        // R2 configuration
+        const hasRequiredR2Config = Boolean(
+            serverSettings.r2AccessKeyId &&
+            serverSettings.r2SecretAccessKey &&
+            serverSettings.r2BucketName &&
+            serverSettings.r2PublicDomain
+        )
+
+        if (hasRequiredR2Config) {
+            this.r2Config = {
+                accountId: serverSettings.r2AccountId || '',
+                accessKeyId: serverSettings.r2AccessKeyId!,
+                secretAccessKey: serverSettings.r2SecretAccessKey!,
+                bucketName: serverSettings.r2BucketName!,
+                publicDomain: serverSettings.r2PublicDomain!,
+                region: serverSettings.r2Region,
+                autoCreateBucket: serverSettings.r2AutoCreateBucket,
+                fileExpirationHours: serverSettings.r2FileExpirationHours,
+                cloudflareApiToken: serverSettings.cloudflareApiToken,
+            }
+            this.r2Enabled = true
+        } else {
+            this.r2Config = null
+            this.r2Enabled = false
+        }
 
         // Ensure data directory exists
         if (!existsSync(this.dataDir)) {

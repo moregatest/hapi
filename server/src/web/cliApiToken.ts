@@ -22,6 +22,15 @@ export interface Settings {
     webappPort?: number
     webappUrl?: string
     corsOrigins?: string[]
+    // R2 configuration (persisted from environment variables)
+    r2AccountId?: string
+    r2AccessKeyId?: string
+    r2SecretAccessKey?: string
+    r2BucketName?: string
+    r2PublicDomain?: string
+    r2Region?: string
+    r2AutoCreateBucket?: boolean
+    cloudflareApiToken?: string
 }
 
 export interface CliApiTokenResult {

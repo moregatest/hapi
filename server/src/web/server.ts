@@ -16,7 +16,9 @@ import { createPermissionsRoutes } from './routes/permissions'
 import { createMachinesRoutes } from './routes/machines'
 import { createGitRoutes } from './routes/git'
 import { createCliRoutes } from './routes/cli'
+import { createFilesRoutes } from './routes/files'
 import type { SSEManager } from '../sse/sseManager'
+import type { R2Manager } from '../r2/r2Manager'
 import type { Server as BunServer } from 'bun'
 import type { Server as SocketEngine } from '@socket.io/bun-engine'
 import type { WebSocketData } from '@socket.io/bun-engine'
@@ -52,6 +54,7 @@ function createWebApp(options: {
     getSyncEngine: () => SyncEngine | null
     getSseManager: () => SSEManager | null
     getStore: () => Store | null
+    getR2Manager: () => R2Manager | null
     jwtSecret: Uint8Array
     embeddedAssetMap: Map<string, EmbeddedWebAsset> | null
 }): Hono<WebAppEnv> {
@@ -80,6 +83,7 @@ function createWebApp(options: {
     app.route('/api', createPermissionsRoutes(options.getSyncEngine))
     app.route('/api', createMachinesRoutes(options.getSyncEngine))
     app.route('/api', createGitRoutes(options.getSyncEngine))
+    app.route('/api/files', createFilesRoutes(options.getR2Manager, options.getSyncEngine, options.getStore))
 
     if (options.embeddedAssetMap) {
         const embeddedAssetMap = options.embeddedAssetMap
@@ -163,6 +167,7 @@ export async function startWebServer(options: {
     getSyncEngine: () => SyncEngine | null
     getSseManager: () => SSEManager | null
     getStore: () => Store | null
+    getR2Manager: () => R2Manager | null
     jwtSecret: Uint8Array
     socketEngine: SocketEngine
 }): Promise<BunServer<WebSocketData>> {
@@ -172,6 +177,7 @@ export async function startWebServer(options: {
         getSyncEngine: options.getSyncEngine,
         getSseManager: options.getSseManager,
         getStore: options.getStore,
+        getR2Manager: options.getR2Manager,
         jwtSecret: options.jwtSecret,
         embeddedAssetMap
     })

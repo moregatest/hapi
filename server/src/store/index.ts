@@ -48,6 +48,21 @@ export type StoredProjectToken = {
     createdAt: number
 }
 
+export type StoredFile = {
+    id: string
+    sessionId: string | null
+    projectPath: string | null
+    fileName: string
+    fileSize: number
+    contentType: string
+    r2Key: string
+    publicUrl: string
+    uploadedBy: 'cli' | 'webapp'
+    createdAt: number
+    expiresAt: number | null
+    metadata: unknown | null
+}
+
 export type VersionedUpdateResult<T> =
     | { result: 'success'; version: number; value: T }
     | { result: 'version-mismatch'; version: number; value: T }
@@ -96,6 +111,21 @@ type DbProjectTokenRow = {
     token: string
     project_path: string
     created_at: number
+}
+
+type DbFileRow = {
+    id: string
+    session_id: string | null
+    project_path: string | null
+    file_name: string
+    file_size: number
+    content_type: string
+    r2_key: string
+    public_url: string
+    uploaded_by: string
+    created_at: number
+    expires_at: number | null
+    metadata: string | null
 }
 
 function safeJsonParse(value: string | null): unknown | null {
@@ -157,6 +187,23 @@ function toStoredProjectToken(row: DbProjectTokenRow): StoredProjectToken {
         token: row.token,
         projectPath: row.project_path,
         createdAt: row.created_at
+    }
+}
+
+function toStoredFile(row: DbFileRow): StoredFile {
+    return {
+        id: row.id,
+        sessionId: row.session_id,
+        projectPath: row.project_path,
+        fileName: row.file_name,
+        fileSize: row.file_size,
+        contentType: row.content_type,
+        r2Key: row.r2_key,
+        publicUrl: row.public_url,
+        uploadedBy: row.uploaded_by as 'cli' | 'webapp',
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        metadata: safeJsonParse(row.metadata)
     }
 }
 
@@ -249,6 +296,26 @@ export class Store {
                 created_at INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_project_tokens_path ON project_tokens(project_path);
+
+            CREATE TABLE IF NOT EXISTS files (
+                id TEXT PRIMARY KEY,
+                session_id TEXT,
+                project_path TEXT,
+                file_name TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                content_type TEXT NOT NULL,
+                r2_key TEXT NOT NULL UNIQUE,
+                public_url TEXT NOT NULL,
+                uploaded_by TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER,
+                metadata TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_files_session ON files(session_id);
+            CREATE INDEX IF NOT EXISTS idx_files_project ON files(project_path);
+            CREATE INDEX IF NOT EXISTS idx_files_created ON files(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_files_expires ON files(expires_at) WHERE expires_at IS NOT NULL;
         `)
 
         const sessionColumns = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
@@ -259,6 +326,15 @@ export class Store {
         }
         if (!sessionColumnNames.has('todos_updated_at')) {
             this.db.exec('ALTER TABLE sessions ADD COLUMN todos_updated_at INTEGER')
+        }
+
+        // Migration: Add expires_at column to files table if it doesn't exist
+        const filesColumns = this.db.prepare('PRAGMA table_info(files)').all() as Array<{ name: string }>
+        const filesColumnNames = new Set(filesColumns.map((c) => c.name))
+
+        if (!filesColumnNames.has('expires_at')) {
+            this.db.exec('ALTER TABLE files ADD COLUMN expires_at INTEGER')
+            this.db.exec('CREATE INDEX IF NOT EXISTS idx_files_expires ON files(expires_at) WHERE expires_at IS NOT NULL')
         }
     }
 
@@ -604,5 +680,73 @@ export class Store {
     getProjectTokensByPath(projectPath: string): StoredProjectToken[] {
         const rows = this.db.prepare('SELECT * FROM project_tokens WHERE project_path = ?').all(projectPath) as DbProjectTokenRow[]
         return rows.map(toStoredProjectToken)
+    }
+
+    addFile(file: Omit<StoredFile, 'id'>): StoredFile {
+        const id = randomUUID()
+        const metadataJson = file.metadata ? JSON.stringify(file.metadata) : null
+
+        this.db.prepare(`
+            INSERT INTO files (
+                id, session_id, project_path, file_name, file_size,
+                content_type, r2_key, public_url, uploaded_by,
+                created_at, expires_at, metadata
+            ) VALUES (
+                @id, @session_id, @project_path, @file_name, @file_size,
+                @content_type, @r2_key, @public_url, @uploaded_by,
+                @created_at, @expires_at, @metadata
+            )
+        `).run({
+            id,
+            session_id: file.sessionId,
+            project_path: file.projectPath,
+            file_name: file.fileName,
+            file_size: file.fileSize,
+            content_type: file.contentType,
+            r2_key: file.r2Key,
+            public_url: file.publicUrl,
+            uploaded_by: file.uploadedBy,
+            created_at: file.createdAt,
+            expires_at: file.expiresAt,
+            metadata: metadataJson
+        })
+
+        const row = this.db.prepare('SELECT * FROM files WHERE id = ?').get(id) as DbFileRow | undefined
+        if (!row) {
+            throw new Error('Failed to create file record')
+        }
+        return toStoredFile(row)
+    }
+
+    getFile(id: string): StoredFile | null {
+        const row = this.db.prepare('SELECT * FROM files WHERE id = ?').get(id) as DbFileRow | undefined
+        return row ? toStoredFile(row) : null
+    }
+
+    getFilesBySession(sessionId: string, limit: number = 50): StoredFile[] {
+        const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(200, limit)) : 50
+        const rows = this.db.prepare(
+            'SELECT * FROM files WHERE session_id = ? ORDER BY created_at DESC LIMIT ?'
+        ).all(sessionId, safeLimit) as DbFileRow[]
+        return rows.map(toStoredFile)
+    }
+
+    getFilesByProject(projectPath: string, limit: number = 50): StoredFile[] {
+        const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(200, limit)) : 50
+        const rows = this.db.prepare(
+            'SELECT * FROM files WHERE project_path = ? ORDER BY created_at DESC LIMIT ?'
+        ).all(projectPath, safeLimit) as DbFileRow[]
+        return rows.map(toStoredFile)
+    }
+
+    deleteFile(id: string): void {
+        this.db.prepare('DELETE FROM files WHERE id = ?').run(id)
+    }
+
+    getExpiredFiles(currentTime: number): StoredFile[] {
+        const rows = this.db.prepare(
+            'SELECT * FROM files WHERE expires_at IS NOT NULL AND expires_at < ? ORDER BY expires_at ASC'
+        ).all(currentTime) as DbFileRow[]
+        return rows.map(toStoredFile)
     }
 }
